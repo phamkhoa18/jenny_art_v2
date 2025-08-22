@@ -1,68 +1,241 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ChevronRight, ChevronDown, Trash2, Edit, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  ChevronRight, 
+  ChevronDown, 
+  Trash2, 
+  Edit3, 
+  Plus,
+  Menu as MenuIcon,
+  Link2,
+  Search,
+  MoreHorizontal
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { IMenu } from '@/lib/types/imenu';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface MenuItem extends IMenu {
   children?: MenuItem[];
 }
 
+// SEPARATE FORM COMPONENT TO PREVENT RE-RENDERS
+const MenuForm = ({ 
+  isEdit = false,
+  initialData = null,
+  parentOptions = [],
+  onSubmit,
+  onCancel 
+}: {
+  isEdit?: boolean;
+  initialData?: MenuItem | null;
+  parentOptions?: MenuItem[];
+  onSubmit: (data: any) => void;
+  onCancel: () => void;
+}) => {
+  const [formState, setFormState] = useState({
+    name: initialData?.name || '',
+    slug: initialData?.slug || '',
+    link: initialData?.link || '',
+    icon: initialData?.icon || '',
+    order: initialData?.order || 0,
+    parentId: initialData?.parentId || '',
+    isActive: initialData?.isActive ?? true
+  });
+  
+  const [errors, setErrors] = useState({ name: '', slug: '' });
+
+  const validate = () => {
+    const newErrors = { name: '', slug: '' };
+    let isValid = true;
+
+    if (!formState.name.trim()) {
+      newErrors.name = 'Name is required';
+      isValid = false;
+    }
+    if (!formState.slug.trim()) {
+      newErrors.slug = 'Slug is required';
+      isValid = false;
+    } else if (!/^[a-z0-9-]+$/.test(formState.slug)) {
+      newErrors.slug = 'Only lowercase letters, numbers, and hyphens';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = () => {
+    if (validate()) {
+      onSubmit(formState);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Name</Label>
+        <Input
+          value={formState.name}
+          onChange={(e) => setFormState(prev => ({ ...prev, name: e.target.value }))}
+          className={cn(errors.name && 'border-red-500')}
+          placeholder="Menu name"
+        />
+        {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Slug</Label>
+        <Input
+          value={formState.slug}
+          onChange={(e) => setFormState(prev => ({ ...prev, slug: e.target.value }))}
+          className={cn(errors.slug && 'border-red-500')}
+          placeholder="menu-slug"
+        />
+        {errors.slug && <p className="text-red-500 text-sm">{errors.slug}</p>}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Link (optional)</Label>
+        <Input
+          value={formState.link}
+          onChange={(e) => setFormState(prev => ({ ...prev, link: e.target.value }))}
+          placeholder="/path or https://example.com"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Icon</Label>
+          <Input
+            value={formState.icon}
+            onChange={(e) => setFormState(prev => ({ ...prev, icon: e.target.value }))}
+            placeholder="icon-name"
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Order</Label>
+          <Input
+            type="number"
+            value={formState.order}
+            onChange={(e) => setFormState(prev => ({ ...prev, order: parseInt(e.target.value) || 0 }))}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Parent Menu</Label>
+        <select
+          value={formState.parentId}
+          onChange={(e) => setFormState(prev => ({ ...prev, parentId: e.target.value }))}
+          className="w-full p-2 border rounded-md"
+        >
+          <option value="">No Parent</option>
+          {parentOptions.map(item => (
+            <option key={item._id} value={item._id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <Label>Active</Label>
+        <Switch
+          checked={formState.isActive}
+          onCheckedChange={(checked) => setFormState(prev => ({ ...prev, isActive: checked }))}
+        />
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit}>
+          {isEdit ? 'Save Changes' : 'Add Menu'}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const MenuAdmin: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<MenuItem | null>(null);
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ name: '', link: '', slug: '', icon: '', order: 0, parentId: '', isActive: true });
-  const [formErrors, setFormErrors] = useState({ name: '', slug: '' });
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch menu items from API
   useEffect(() => {
-    const fetchMenus = async () => {
-      try {
-        const response = await fetch('/api/menus');
-        const result = await response.json();
-        console.log(result);
-        
-        if (result.success) {
-          // Build tree structure from flat list
-          const buildTree = (items: MenuItem[], parentId: string | null = null): MenuItem[] => {
-            return items
-              .filter(item => item.parentId === parentId)
-              .map(item => ({
-                ...item,
-                children: buildTree(items, item._id),
-              }));
-          };
-          setMenuItems(buildTree(result.data));
-        } else {
-          toast.error('Failed to fetch menus');
-        }
-      } catch {
-        toast.error('Error fetching menus');
-      }
-    };
     fetchMenus();
   }, []);
 
-  // Get valid parent options excluding the current item and its descendants
+  const fetchMenus = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/menus');
+      const result = await response.json();
+      
+      if (result.success) {
+        const buildTree = (items: MenuItem[], parentId: string | null = null): MenuItem[] => {
+          return items
+            .filter(item => item.parentId === parentId)
+            .map(item => ({
+              ...item,
+              children: buildTree(items, item._id),
+            }))
+            .sort((a, b) => a.order - b.order);
+        };
+        setMenuItems(buildTree(result.data));
+      } else {
+        toast.error('Failed to fetch menus');
+      }
+    } catch {
+      toast.error('Error fetching menus');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getValidParentOptions = (items: MenuItem[], excludeId: string): MenuItem[] => {
     const result: MenuItem[] = [];
     const collectItems = (nodes: MenuItem[], level: number = 0) => {
       nodes.forEach(item => {
         if (item._id !== excludeId && (!item.children || !item.children.some(child => child._id === excludeId))) {
-          result.push({ ...item, name: `${'    '.repeat(level)} ${item.name}` });
+          result.push({ ...item, name: `${'  '.repeat(level)}${level > 0 ? '└ ' : ''}${item.name}` });
           if (item.children) {
             collectItems(item.children, level + 1);
           }
@@ -73,33 +246,7 @@ const MenuAdmin: React.FC = () => {
     return result;
   };
 
-  // Validate form inputs
-  const validateForm = () => {
-    const errors = { name: '', slug: '' };
-    let isValid = true;
-
-    if (!formData.name.trim()) {
-      errors.name = 'Name is required';
-      isValid = false;
-    }
-    if (!formData.slug.trim()) {
-      errors.slug = 'Slug is required';
-      isValid = false;
-    } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-      errors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens';
-      isValid = false;
-    }
-
-    setFormErrors(errors);
-    return isValid;
-  };
-
-  const handleAddMenuItem = async () => {
-    if (!validateForm()) {
-      toast.error('Please fix the form errors');
-      return;
-    }
-
+  const handleAddMenuItem = async (formData: any) => {
     try {
       const response = await fetch('/api/menus', {
         method: 'POST',
@@ -109,37 +256,19 @@ const MenuAdmin: React.FC = () => {
       const result = await response.json();
       
       if (result.success) {
-        // Refresh menu items
-        const refreshResponse = await fetch('/api/menus');
-        const refreshResult = await refreshResponse.json();
-        if (refreshResult.success) {
-          const buildTree = (items: MenuItem[], parentId: string | null = null): MenuItem[] => {
-            return items
-              .filter(item => item.parentId === parentId)
-              .map(item => ({
-                ...item,
-                children: buildTree(items, item._id),
-              }));
-          };
-          setMenuItems(buildTree(refreshResult.data));
-          toast.success('Menu item added successfully', { duration: 3000 });
-          setFormData({ name: '', link: '' , slug: '', icon: '', order: 0, parentId: '', isActive: true });
-          setFormErrors({ name: '', slug: '' });
-          setIsAddDialogOpen(false);
-        }
+        await fetchMenus();
+        toast.success('Menu added');
+        setIsAddDialogOpen(false);
       } else {
-        toast.error(result.message || 'Failed to add menu item');
+        toast.error(result.message || 'Failed to add menu');
       }
     } catch {
-      toast.error('Error adding menu item');
+      toast.error('Error adding menu');
     }
   };
 
-  const handleEditMenuItem = async () => {
-    if (!currentItem || !validateForm()) {
-      toast.error('Please fix the form errors');
-      return;
-    }
+  const handleEditMenuItem = async (formData: any) => {
+    if (!currentItem) return;
 
     try {
       const response = await fetch(`/api/menus/${currentItem._id}`, {
@@ -149,30 +278,15 @@ const MenuAdmin: React.FC = () => {
       });
       const result = await response.json();
       if (result.success) {
-        // Refresh menu items
-        const refreshResponse = await fetch('/api/menus');
-        const refreshResult = await refreshResponse.json();
-        if (refreshResult.success) {
-          const buildTree = (items: MenuItem[], parentId: string | null = null): MenuItem[] => {
-            return items
-              .filter(item => item.parentId === parentId)
-              .map(item => ({
-                ...item,
-                children: buildTree(items, item._id),
-              }));
-          };
-          setMenuItems(buildTree(refreshResult.data));
-          toast.success('Menu item updated successfully', { duration: 3000 });
-          setFormData({ name: '', link: '' , slug: '', icon: '', order: 0, parentId: '', isActive: true });
-          setFormErrors({ name: '', slug: '' });
-          setIsEditDialogOpen(false);
-          setCurrentItem(null);
-        }
+        await fetchMenus();
+        toast.success('Menu updated');
+        setIsEditDialogOpen(false);
+        setCurrentItem(null);
       } else {
-        toast.error('Failed to update menu item');
+        toast.error('Failed to update menu');
       }
     } catch {
-      toast.error('Error updating menu item');
+      toast.error('Error updating menu');
     }
   };
 
@@ -186,28 +300,15 @@ const MenuAdmin: React.FC = () => {
       const result = await response.json();
       
       if (result.success) {
-        // Refresh menu items
-        const refreshResponse = await fetch('/api/menus');
-        const refreshResult = await refreshResponse.json();
-        if (refreshResult.success) {
-          const buildTree = (items: MenuItem[], parentId: string | null = null): MenuItem[] => {
-            return items
-              .filter(item => item.parentId === parentId)
-              .map(item => ({
-                ...item,
-                children: buildTree(items, item._id),
-              }));
-          };
-          setMenuItems(buildTree(refreshResult.data));
-          toast.success('Menu item deleted successfully', { duration: 3000 });
-          setDeleteItemId(null);
-          setIsDeleteDialogOpen(false);
-        }
+        await fetchMenus();
+        toast.success('Menu deleted');
+        setDeleteItemId(null);
+        setIsDeleteDialogOpen(false);
       } else {
-        toast.error(result.message || 'Failed to delete menu item');
+        toast.error(result.message || 'Failed to delete menu');
       }
     } catch {
-      toast.error('Error deleting menu item');
+      toast.error('Error deleting menu');
     }
   };
 
@@ -217,78 +318,107 @@ const MenuAdmin: React.FC = () => {
     );
   };
 
-  const renderMenuItems = (items: MenuItem[], level: number = 0) => {
-    const levelColors = ['border-gray-400', 'border-blue-400', 'border-green-400', 'border-purple-400'];
-    const borderColor = levelColors[level % levelColors.length] || 'border-gray-400';
+  const filterMenuItems = (items: MenuItem[]): MenuItem[] => {
+    if (!searchTerm) return items;
+    
+    return items.filter(item => {
+      const matchesSearch = 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.link.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch;
+    }).map(item => ({
+      ...item,
+      children: item.children ? filterMenuItems(item.children) : undefined
+    }));
+  };
 
+  const renderMenuItems = (items: MenuItem[], level: number = 0): React.ReactNode => {
     return items.map((item) => (
       <React.Fragment key={item._id}>
-        <TableRow
-          className={cn(
-            'hover:bg-gray-50 transition-colors',
-            level > 0 ? `border-l-4 ${borderColor}` : ''
-          )}
-        >
-          <TableCell className="text-gray-500 truncate">{item._id}</TableCell>
-          <TableCell className="font-medium">
-            <div className="flex items-center">
-              <div style={{ width: `${level * 2}rem` }} />
+        <TableRow className="group hover:bg-gray-50/80 transition-colors">
+          <TableCell className="w-72">
+            <div className="flex items-center gap-3">
+              <div style={{ width: `${level * 24}px` }} />
+              
               {item.children && item.children.length > 0 ? (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => toggleExpand(item._id)}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                  aria-label={expandedItems.includes(item._id) ? 'Collapse' : 'Expand'}
+                  className="h-6 w-6 p-0 hover:bg-gray-200"
                 >
                   {expandedItems.includes(item._id) ? (
-                    <ChevronDown size={20} />
+                    <ChevronDown size={14} />
                   ) : (
-                    <ChevronRight size={20} />
+                    <ChevronRight size={14} />
                   )}
-                </button>
+                </Button>
               ) : (
-                <span className="w-5" />
+                <div className="w-6" />
               )}
-              <span className="truncate">{item.name}</span>
+              
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <MenuIcon size={16} className="text-gray-400 flex-shrink-0" />
+                <span className="font-medium text-gray-900 truncate">{item.name}</span>
+                <Badge variant={item.isActive ? "default" : "secondary"} className="text-xs">
+                  {item.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
             </div>
           </TableCell>
-          <TableCell className="text-gray-500 truncate">{item.link}</TableCell>
-          <TableCell className="text-gray-500 truncate">{item.slug}</TableCell>
-          <TableCell className="text-gray-500 truncate">{item.order}</TableCell>
+          
+          <TableCell className="text-gray-600">
+            {item.link ? (
+              <div className="flex items-center gap-1">
+                <Link2 size={14} />
+                <span className="truncate max-w-32">{item.link}</span>
+              </div>
+            ) : (
+              <span className="text-gray-400">—</span>
+            )}
+          </TableCell>
+          
+          <TableCell>
+            <code className="text-sm bg-gray-100 px-2 py-1 rounded">{item.slug}</code>
+          </TableCell>
+          
+          <TableCell className="text-center text-gray-600">{item.order}</TableCell>
+          
           <TableCell className="text-right">
-            <div className="flex space-x-1 justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCurrentItem(item);
-                  setFormData({
-                    name: item.name,
-                    link: item.link,
-                    slug: item.slug,
-                    icon: item.icon || '',
-                    order: item.order,
-                    parentId: item.parentId || '',
-                    isActive: item.isActive,
-                  });
-                  setFormErrors({ name: '', slug: '' });
-                  setIsEditDialogOpen(true);
-                }}
-                className="hover:bg-gray-200"
-              >
-                <Edit size={16} className="mr-1" /> Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setDeleteItemId(item._id);
-                  setIsDeleteDialogOpen(true);
-                }}
-                className="hover:bg-red-100 text-red-600"
-              >
-                <Trash2 size={16} className="mr-1" /> Delete
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <MoreHorizontal size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-32">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCurrentItem(item);
+                    setIsEditDialogOpen(true);
+                  }}
+                >
+                  <Edit3 size={14} className="mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDeleteItemId(item._id);
+                    setIsDeleteDialogOpen(true);
+                  }}
+                  className="text-red-600"
+                >
+                  <Trash2 size={14} className="mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </TableCell>
         </TableRow>
         {item.children && expandedItems.includes(item._id) && renderMenuItems(item.children, level + 1)}
@@ -296,244 +426,129 @@ const MenuAdmin: React.FC = () => {
     ));
   };
 
+  const filteredMenuItems = filterMenuItems(menuItems);
+
   return (
-    <div className="container mx-auto">
-      <Card className="shadow-xl border-0">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <CardTitle className="text-2xl font-bold text-gray-900">Menu Management</CardTitle>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700">Add New Menu Item</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md bg-white">
-                <DialogHeader>
-                  <DialogTitle className="text-xl">Add New Menu Item</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-5">
-                  <div>
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={e => setFormData({ ...formData, name: e.target.value })}
-                      className={cn('mt-1', formErrors.name && 'border-red-500')}
-                      placeholder="Enter menu name"
-                    />
-                    {formErrors.name && (
-                      <p className="text-red-500 text-sm mt-1 flex items-center">
-                        <AlertCircle size={14} className="mr-1" /> {formErrors.name}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="icon">Link (optional)</Label>
-                    <Input
-                      id="link"
-                      value={formData.link}
-                      onChange={e => setFormData({ ...formData, link: e.target.value })}
-                      className="mt-1"
-                      placeholder="link or URL"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="slug">Slug</Label>
-                    <Input
-                      id="slug"
-                      value={formData.slug}
-                      onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                      className={cn('mt-1', formErrors.slug && 'border-red-500')}
-                      placeholder="enter-menu-slug"
-                    />
-                    {formErrors.slug && (
-                      <p className="text-red-500 text-sm mt-1 flex items-center">
-                        <AlertCircle size={14} className="mr-1" /> {formErrors.slug}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="icon">Icon (optional)</Label>
-                    <Input
-                      id="icon"
-                      value={formData.icon}
-                      onChange={e => setFormData({ ...formData, icon: e.target.value })}
-                      className="mt-1"
-                      placeholder="Icon class or URL"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="parent">Parent Menu</Label>
-                    <select
-                      id="parent"
-                      value={formData.parentId}
-                      onChange={e => setFormData({ ...formData, parentId: e.target.value })}
-                      className="w-full p-2.5 border rounded-md mt-1 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">No Parent</option>
-                      {getValidParentOptions(menuItems, '').map(item => (
-                        <option key={item._id} value={item._id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsAddDialogOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button onClick={handleAddMenuItem}>Add Item</Button>
-                  </DialogFooter>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6">
-          {menuItems.length === 0 ? (
-            <p className="text-gray-500 text-center py-6">No menu items available. Add one to get started!</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[10%] line-clamp-1">Id</TableHead>
-                    <TableHead className="w-[20%]">Name</TableHead>
-                    <TableHead className="w-[20%]">Link</TableHead>
-                    <TableHead className="w-[20%]">Slug</TableHead>
-                    <TableHead className="w-[20%]">Order</TableHead>
-                    <TableHead className="w-[20%] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {renderMenuItems(menuItems)}
-                </TableBody>
-              </Table>
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Menus</h1>
+          <p className="text-gray-600 mt-1">Manage navigation structure</p>
+        </div>
+        
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus size={16} className="mr-2" />
+          Add Menu
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        <Input
+          placeholder="Search menus..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
+          ) : filteredMenuItems.length === 0 ? (
+            <div className="text-center py-12">
+              <MenuIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm ? 'No menus found' : 'No menus yet'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {searchTerm ? 'Try a different search term' : 'Create your first menu to get started'}
+              </p>
+              {!searchTerm && (
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <Plus size={16} className="mr-2" />
+                  Add Menu
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-72">Name</TableHead>
+                  <TableHead>Link</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead className="text-center w-20">Order</TableHead>
+                  <TableHead className="text-right w-20"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {renderMenuItems(filteredMenuItems)}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Add Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
-            <DialogTitle className="text-xl">Edit Menu Item</DialogTitle>
+            <DialogTitle>Add Menu</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5">
-            <div>
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className={cn('mt-1', formErrors.name && 'border-red-500')}
-                placeholder="Enter menu name"
-              />
-              {formErrors.name && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle size={14} className="mr-1" /> {formErrors.name}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="edit-icon">Link (optional)</Label>
-              <Input
-                id="edit-link"
-                value={formData.link}
-                onChange={e => setFormData({ ...formData, link: e.target.value })}
-                className="mt-1"
-                placeholder="link class or URL"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-slug">Slug</Label>
-              <Input
-                id="edit-slug"
-                value={formData.slug}
-                onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                className={cn('mt-1', formErrors.slug && 'border-red-500')}
-                placeholder="enter-menu-slug"
-              />
-              {formErrors.slug && (
-                <p className="text-red-500 text-sm mt-1 flex items-center">
-                  <AlertCircle size={14} className="mr-1" /> {formErrors.slug}
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="edit-icon">Icon (optional)</Label>
-              <Input
-                id="edit-icon"
-                value={formData.icon}
-                onChange={e => setFormData({ ...formData, icon: e.target.value })}
-                className="mt-1"
-                placeholder="Icon class or URL"
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-parent">Parent Menu</Label>
-              <select
-                id="edit-parent"
-                value={formData.parentId}
-                onChange={e => setFormData({ ...formData, parentId: e.target.value })}
-                className="w-full p-2.5 border rounded-md mt-1 focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">No Parent</option>
-                {currentItem &&
-                  getValidParentOptions(menuItems, currentItem._id).map(item => (
-                    <option key={item._id} value={item._id}>
-                      {item.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="edit-isActive">Active</Label>
-              <input
-                id="edit-isActive"
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                className="mt-1"
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleEditMenuItem}>Save Changes</Button>
-            </DialogFooter>
-          </div>
+          <MenuForm
+            parentOptions={getValidParentOptions(menuItems, '')}
+            onSubmit={handleAddMenuItem}
+            onCancel={() => setIsAddDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
-            <DialogTitle className="text-xl">Confirm Deletion</DialogTitle>
+            <DialogTitle>Edit Menu</DialogTitle>
           </DialogHeader>
-          <p className="text-gray-600">Are you sure you want to delete this menu item? This action cannot be undone.</p>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteMenuItem}
-            >
-              Delete
-            </Button>
-          </DialogFooter>
+          <MenuForm
+            key={currentItem?._id} // Force re-mount on item change
+            isEdit={true}
+            initialData={currentItem}
+            parentOptions={getValidParentOptions(menuItems, currentItem?._id || '')}
+            onSubmit={handleEditMenuItem}
+            onCancel={() => {
+              setIsEditDialogOpen(false);
+              setCurrentItem(null);
+            }}
+          />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Menu</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure? This will also delete all child menus.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteMenuItem} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

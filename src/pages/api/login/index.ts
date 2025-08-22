@@ -11,12 +11,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { email, password } = req.body;
+  console.log(email,password);
+  
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: "Thiếu email hoặc mật khẩu" });
   }
 
-  const user = await User.findOne({ email });
+  
+  const user = await User.findOne({ email: email });
+  
 
   if (!user || user.password !== password) {
     return res.status(401).json({ success: false, message: "Email hoặc mật khẩu không đúng" });

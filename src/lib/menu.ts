@@ -16,10 +16,6 @@ export const adminMenu = [
         href: '/admin/category',
       },
       {
-        title: 'Bài viết',
-        href: '/admin/blogs',
-      },
-      {
         title: 'Sản phẩm',
         href: '/admin/products',
       },
