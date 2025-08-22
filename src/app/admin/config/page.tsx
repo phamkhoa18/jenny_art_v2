@@ -16,11 +16,12 @@ import {
   RotateCcw,
   CheckCircle,
   AlertCircle,
-  ExternalLink,
-  Upload,
   Link,
-  ChevronRight
+  ChevronRight,
+  Search,
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import ImageUploader from '@/components/cloudinaryUpload';
 
 // Type definitions
 interface WebsiteConfig {
@@ -38,11 +39,15 @@ interface WebsiteConfig {
     zalo?: string;
     instagram?: string;
   };
-}
-
-interface ImageUploaderProps {
-  onUploadSuccess: (url: string) => void;
-  initialImage?: string;
+  seo: {
+    description?: string;
+    keywords?: string;
+    ogImage?: string;
+    url?: string;
+    twitterHandle?: string;
+    author?: string;
+    locale?: string;
+  };
 }
 
 interface SectionConfig {
@@ -59,95 +64,6 @@ interface PlatformNamesMap {
   [key: string]: string;
 }
 
-// Mock ImageUploader component
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onUploadSuccess, initialImage = '' }) => {
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [previewImage, setPreviewImage] = useState<string>(initialImage);
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const mockUrl = `https://via.placeholder.com/300x300?text=${encodeURIComponent(file.name)}`;
-      setPreviewImage(mockUrl);
-      onUploadSuccess(mockUrl);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      const mockUrl = `https://via.placeholder.com/300x300?text=${encodeURIComponent(file.name)}`;
-      setPreviewImage(mockUrl);
-      onUploadSuccess(mockUrl);
-    }
-  };
-
-  const handleViewImage = (): void => {
-    if (previewImage) {
-      window.open(previewImage, '_blank');
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div
-        className={`relative border-2 border-dashed rounded-lg p-8 transition-all duration-200 cursor-pointer ${
-          isDragging 
-            ? 'border-blue-500 bg-blue-50/50' 
-            : 'border-gray-300 hover:border-gray-400 bg-gray-50/30'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <input
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        />
-        <div className="text-center">
-          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-            <Upload className="h-5 w-5 text-gray-600" />
-          </div>
-          <p className="text-sm font-medium text-gray-900 mb-1">
-            {isDragging ? 'Drop file here' : 'Click to upload or drag and drop'}
-          </p>
-          <p className="text-xs text-gray-500">PNG, JPG, WebP up to 10MB</p>
-        </div>
-      </div>
-      
-      {previewImage && (
-        <div className="relative">
-          <img
-            src={previewImage}
-            alt="Preview"
-            className="w-full h-32 object-cover rounded-lg border border-gray-200"
-          />
-          <button 
-            onClick={handleViewImage}
-            className="absolute top-2 right-2 bg-white/90 hover:bg-white text-gray-700 p-1.5 rounded-md text-xs font-medium flex items-center gap-1 transition-colors"
-          >
-            <ExternalLink className="h-3 w-3" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
-
 const WebsiteConfigPage: React.FC = () => {
   const [config, setConfig] = useState<WebsiteConfig>({
     siteName: '',
@@ -163,6 +79,15 @@ const WebsiteConfigPage: React.FC = () => {
       youtube: '',
       zalo: '',
       instagram: '',
+    },
+    seo: {
+      description: '',
+      keywords: '',
+      ogImage: '',
+      url: '',
+      twitterHandle: '',
+      author: '',
+      locale: 'vi-VN',
     },
   });
 
@@ -185,12 +110,13 @@ const WebsiteConfigPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching config:', error);
+      toast.error('Lỗi khi tải cấu hình');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (field: string, value: string, parent?: keyof Pick<WebsiteConfig, 'contact' | 'socialLinks'>): void => {
+  const handleChange = (field: string, value: string, parent?: keyof Pick<WebsiteConfig, 'contact' | 'socialLinks' | 'seo'>): void => {
     if (parent) {
       setConfig((prev) => ({
         ...prev,
@@ -207,7 +133,7 @@ const WebsiteConfigPage: React.FC = () => {
 
   const handleSubmit = async (): Promise<void> => {
     if (!config.siteName.trim()) {
-      alert('Site name is required');
+      toast.error('Tên website là bắt buộc');
       return;
     }
 
@@ -222,14 +148,15 @@ const WebsiteConfigPage: React.FC = () => {
       const data = await res.json();
       
       if (data.success) {
+        toast.success('Lưu cấu hình thành công!');
         setHasChanges(false);
         setOriginalData(config);
       } else {
-        alert(data.error || 'Failed to save configuration');
+        toast.error(data.error || 'Lưu cấu hình thất bại');
       }
     } catch (error) {
       console.error('Error saving config:', error);
-      alert('Network error occurred');
+      toast.error('Lỗi kết nối server');
     } finally {
       setSubmitting(false);
     }
@@ -239,16 +166,18 @@ const WebsiteConfigPage: React.FC = () => {
     if (originalData) {
       setConfig(originalData);
       setHasChanges(false);
+      toast.success('Đã reset về dữ liệu gốc');
     } else {
       fetchConfig();
     }
   };
 
   const sections: SectionConfig[] = [
-    { id: 'general', name: 'General', icon: Globe },
-    { id: 'media', name: 'Media', icon: ImageIcon },
-    { id: 'contact', name: 'Contact', icon: Phone },
-    { id: 'social', name: 'Social', icon: Link },
+    { id: 'general', name: 'Thông tin chung', icon: Globe },
+    { id: 'media', name: 'Hình ảnh', icon: ImageIcon },
+    { id: 'contact', name: 'Liên hệ', icon: Phone },
+    { id: 'social', name: 'Mạng xã hội', icon: Link },
+    { id: 'seo', name: 'SEO & Meta', icon: Search },
   ];
 
   const socialIcons: SocialIconsMap = {
@@ -329,8 +258,8 @@ const WebsiteConfigPage: React.FC = () => {
                 <Settings className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-gray-900">Website Settings</h1>
-                <p className="text-gray-600 text-sm">Manage your website configuration</p>
+                <h1 className="text-2xl font-semibold text-gray-900">Cấu hình website</h1>
+                <p className="text-gray-600 text-sm">Quản lý thông tin và cấu hình trang web</p>
               </div>
             </div>
             
@@ -338,7 +267,7 @@ const WebsiteConfigPage: React.FC = () => {
               {hasChanges && (
                 <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 rounded-full">
                   <AlertCircle className="w-4 h-4 text-orange-500" />
-                  <span className="text-sm font-medium text-orange-700">Unsaved changes</span>
+                  <span className="text-sm font-medium text-orange-700">Có thay đổi chưa lưu</span>
                 </div>
               )}
               
@@ -359,12 +288,12 @@ const WebsiteConfigPage: React.FC = () => {
                 {submitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Saving...
+                    Đang lưu...
                   </>
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Save
+                    Lưu cấu hình
                   </>
                 )}
               </button>
@@ -412,21 +341,21 @@ const WebsiteConfigPage: React.FC = () => {
               {activeSection === 'general' && (
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-1">General Settings</h2>
-                    <p className="text-gray-600 text-sm">Basic website information</p>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Thông tin chung</h2>
+                    <p className="text-gray-600 text-sm">Cấu hình thông tin cơ bản của website</p>
                   </div>
                   
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-2">
-                        Site Name
+                        Tên website *
                       </label>
                       <input
                         type="text"
                         value={config.siteName}
                         onChange={(e) => handleChange('siteName', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
-                        placeholder="Enter site name..."
+                        placeholder="Nhập tên website..."
                       />
                     </div>
                   </div>
@@ -438,8 +367,8 @@ const WebsiteConfigPage: React.FC = () => {
                 <div className="space-y-6">
                   <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <div className="mb-6">
-                      <h2 className="text-lg font-semibold text-gray-900 mb-1">Logo</h2>
-                      <p className="text-gray-600 text-sm">Upload your website logo</p>
+                      <h2 className="text-lg font-semibold text-gray-900 mb-1">Logo chính</h2>
+                      <p className="text-gray-600 text-sm">Tải lên logo chính của website</p>
                     </div>
                     
                     <ImageUploader 
@@ -451,7 +380,7 @@ const WebsiteConfigPage: React.FC = () => {
                   <div className="bg-white rounded-xl border border-gray-200 p-6">
                     <div className="mb-6">
                       <h2 className="text-lg font-semibold text-gray-900 mb-1">Favicon</h2>
-                      <p className="text-gray-600 text-sm">Small icon displayed in browser tabs</p>
+                      <p className="text-gray-600 text-sm">Biểu tượng nhỏ hiển thị trên tab trình duyệt</p>
                     </div>
                     
                     <ImageUploader 
@@ -466,8 +395,8 @@ const WebsiteConfigPage: React.FC = () => {
               {activeSection === 'contact' && (
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Contact Information</h2>
-                    <p className="text-gray-600 text-sm">Update your contact details</p>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Thông tin liên hệ</h2>
+                    <p className="text-gray-600 text-sm">Cập nhật thông tin liên hệ của bạn</p>
                   </div>
                   
                   <div className="space-y-4">
@@ -475,7 +404,7 @@ const WebsiteConfigPage: React.FC = () => {
                       <div>
                         <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
                           <Phone className="h-4 w-4" />
-                          Phone Number
+                          Số điện thoại
                         </label>
                         <input
                           type="tel"
@@ -489,7 +418,7 @@ const WebsiteConfigPage: React.FC = () => {
                       <div>
                         <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
                           <Mail className="h-4 w-4" />
-                          Email Address
+                          Email
                         </label>
                         <input
                           type="email"
@@ -504,14 +433,14 @@ const WebsiteConfigPage: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-2 flex items-center gap-2">
                         <MapPin className="h-4 w-4" />
-                        Address
+                        Địa chỉ
                       </label>
                       <textarea
                         value={config.contact?.address || ''}
                         onChange={(e) => handleChange('address', e.target.value, 'contact')}
                         rows={3}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all resize-none"
-                        placeholder="Enter your address..."
+                        placeholder="Nhập địa chỉ của bạn..."
                       />
                     </div>
                   </div>
@@ -522,8 +451,8 @@ const WebsiteConfigPage: React.FC = () => {
               {activeSection === 'social' && (
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="mb-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Social Media</h2>
-                    <p className="text-gray-600 text-sm">Connect your social media accounts</p>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-1">Mạng xã hội</h2>
+                    <p className="text-gray-600 text-sm">Liên kết các trang mạng xã hội của bạn</p>
                   </div>
                   
                   <div className="space-y-4">
@@ -551,14 +480,198 @@ const WebsiteConfigPage: React.FC = () => {
                 </div>
               )}
 
+              {/* SEO Settings */}
+              {activeSection === 'seo' && (
+                <div className="space-y-6">
+                  {/* Basic SEO */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="mb-6">
+                      <h2 className="text-lg font-semibold text-gray-900 mb-1">Thông tin SEO cơ bản</h2>
+                      <p className="text-gray-600 text-sm">Cấu hình meta tags và thông tin SEO cho website</p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Mô tả website (Meta Description)
+                        </label>
+                        <textarea
+                          value={config.seo?.description || ''}
+                          onChange={(e) => handleChange('description', e.target.value, 'seo')}
+                          rows={3}
+                          maxLength={160}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all resize-none"
+                          placeholder="Mô tả ngắn gọn về website của bạn (160 ký tự)"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>Mô tả này sẽ hiển thị trong kết quả tìm kiếm Google</span>
+                          <span>{(config.seo?.description || '').length}/160</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Từ khóa (Keywords)
+                        </label>
+                        <input
+                          type="text"
+                          value={config.seo?.keywords || ''}
+                          onChange={(e) => handleChange('keywords', e.target.value, 'seo')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                          placeholder="art, fine art, murals, sculptures, decor"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Phân cách các từ khóa bằng dấu phẩy
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          URL chính của website
+                        </label>
+                        <input
+                          type="url"
+                          value={config.seo?.url || ''}
+                          onChange={(e) => handleChange('url', e.target.value, 'seo')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                          placeholder="https://jennypham.com.au"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Tác giả/Người tạo
+                        </label>
+                        <input
+                          type="text"
+                          value={config.seo?.author || ''}
+                          onChange={(e) => handleChange('author', e.target.value, 'seo')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                          placeholder="Jenny Pham"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Social Media SEO */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="mb-6">
+                      <h2 className="text-lg font-semibold text-gray-900 mb-1">Social Media SEO</h2>
+                      <p className="text-gray-600 text-sm">Cấu hình hiển thị khi chia sẻ trên mạng xã hội</p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Ảnh Open Graph (OG Image)
+                        </label>
+                        <ImageUploader 
+                          onUploadSuccess={(url: string) => handleChange('ogImage', url, 'seo')}
+                          initialImage={config.seo?.ogImage || ''}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Ảnh này sẽ hiển thị khi chia sẻ website trên Facebook, Twitter, LinkedIn... (1200x630px)
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Twitter Handle
+                        </label>
+                        <input
+                          type="text"
+                          value={config.seo?.twitterHandle || ''}
+                          onChange={(e) => handleChange('twitterHandle', e.target.value, 'seo')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                          placeholder="@JennyPham"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                          Ngôn ngữ/Locale
+                        </label>
+                        <select
+                          value={config.seo?.locale || 'vi-VN'}
+                          onChange={(e) => handleChange('locale', e.target.value, 'seo')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                        >
+                          <option value="vi-VN">Tiếng Việt (Vietnam)</option>
+                          <option value="en-US">English (US)</option>
+                          <option value="en-AU">English (Australia)</option>
+                          <option value="en-GB">English (UK)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SEO Preview */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="mb-6">
+                      <h2 className="text-lg font-semibold text-gray-900 mb-1">Xem trước SEO</h2>
+                      <p className="text-gray-600 text-sm">Xem website sẽ hiển thị như thế nào trong kết quả tìm kiếm</p>
+                    </div>
+                    
+                    {/* Google Search Preview */}
+                    <div className="space-y-4">
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                          <Search className="h-4 w-4" />
+                          Google Search Preview
+                        </h3>
+                        <div className="space-y-1">
+                          <div className="text-blue-600 text-lg font-medium hover:underline cursor-pointer">
+                            {config.siteName || 'Tên website'}
+                          </div>
+                          <div className="text-green-700 text-sm">
+                            {config.seo?.url || 'https://website.com'}
+                          </div>
+                          <div className="text-gray-600 text-sm leading-relaxed">
+                            {config.seo?.description || 'Mô tả website sẽ hiển thị ở đây...'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Social Media Preview */}
+                      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                          <Facebook className="h-4 w-4" />
+                          Facebook/Social Media Preview
+                        </h3>
+                        <div className="border border-gray-300 rounded-lg overflow-hidden bg-white max-w-md">
+                          {config.seo?.ogImage && (
+                            <img 
+                              src={config.seo.ogImage} 
+                              alt="OG Preview" 
+                              className="w-full h-32 object-cover"
+                            />
+                          )}
+                          <div className="p-3">
+                            <div className="text-gray-500 text-xs uppercase mb-1">
+                              {config.seo?.url?.replace('https://', '').replace('http://', '') || 'website.com'}
+                            </div>
+                            <div className="font-semibold text-gray-900 text-sm mb-1">
+                              {config.siteName || 'Tên website'}
+                            </div>
+                            <div className="text-gray-600 text-xs">
+                              {config.seo?.description || 'Mô tả website...'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Success Message */}
               {!hasChanges && !submitting && originalData && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <h3 className="font-medium text-green-800">Settings saved</h3>
-                      <p className="text-green-600 text-sm">Your configuration has been saved successfully.</p>
+                      <h3 className="font-medium text-green-800">Cấu hình đã được lưu</h3>
+                      <p className="text-green-600 text-sm">Tất cả thay đổi của bạn đã được lưu thành công.</p>
                     </div>
                   </div>
                 </div>

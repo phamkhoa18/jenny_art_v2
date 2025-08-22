@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -27,6 +28,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(400).json({ success: false, error: 'Đã có cấu hình. Không thể tạo thêm.' });
         }
 
+        // Validate required fields
+        const { siteName, logo, favicon } = req.body;
+        if (!siteName || !logo || !favicon) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Thiếu thông tin bắt buộc: siteName, logo, favicon' 
+          });
+        }
+
         const config = await WebsiteConfig.create(req.body);
         return res.status(201).json({ success: true, data: config });
       } catch (err) {
@@ -39,10 +49,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     case 'PUT':
       try {
-        const config = await WebsiteConfig.findOneAndUpdate({}, req.body, {
+        // Validate required fields if provided
+        const { siteName, logo, favicon } = req.body;
+        if (siteName !== undefined && !siteName.trim()) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Tên website không được để trống' 
+          });
+        }
+
+        // Ensure SEO fields have default values if not provided
+        const updateData = {
+          ...req.body,
+          seo: {
+            description: '',
+            keywords: '',
+            ogImage: '',
+            url: '',
+            twitterHandle: '',
+            author: '',
+            locale: 'vi-VN',
+            ...req.body.seo
+          }
+        };
+
+        const config = await WebsiteConfig.findOneAndUpdate({}, updateData, {
           new: true,
           upsert: true,
+          runValidators: true,
         });
+        
         return res.status(200).json({ success: true, data: config });
       } catch (err) {
         return res.status(500).json({
@@ -51,6 +87,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           errorMessage: (err as any).message,
         });
       }
+
+
+  case 'PATCH': // Force update SEO structure
+  try {
+    const config = await WebsiteConfig.findOneAndUpdate(
+      {},
+      {
+        $set: {
+          'seo.description': '',
+          'seo.keywords': '',
+          'seo.ogImage': '',
+          'seo.url': '',
+          'seo.twitterHandle': '',
+          'seo.author': '',
+          'seo.locale': 'vi-VN'
+        }
+      },
+      { new: true, upsert: true }
+    );
+    
+    return res.status(200).json({ success: true, data: config });
+  } catch (err:any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 
     case 'DELETE':
       try {
