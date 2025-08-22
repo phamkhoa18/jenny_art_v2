@@ -78,20 +78,22 @@ export default function Header() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
+          {logo && (
             <Link href="/">
-            <Image
-              src={logo}
-              alt="Logo"
-              width={100}
-              height={75}
-              className="h-[75px] w-auto object-contain"
-              priority
-              style={{
-                width: 'auto',
-                height: '75px'
-              }}
-            />
-          </Link>
+              <Image
+                src={logo}
+                alt="Logo"
+                width={100}
+                height={75}
+                className="h-[75px] w-auto object-contain"
+                priority
+                style={{
+                  width: 'auto',
+                  height: '75px'
+                }}
+              />
+            </Link>
+          )}
           </motion.div>
 
           {/* Desktop Menu */}
